@@ -3,6 +3,7 @@ using BepInEx;
 using BepInEx.Bootstrap;
 using BepInEx.Configuration;
 using BepInEx.Logging;
+using PixelCrushers.DialogueSystem.ChatMapper;
 using System;
 using System.Collections.Generic;
 using System.ComponentModel;
@@ -41,6 +42,7 @@ namespace JModder
         private static GUIStyle JModStyleB = new GUIStyle();
         private static GUIStyle JModStyleS = new GUIStyle();
         private static GUIStyle JModStyleST = new GUIStyle();
+        private static GUIStyle JModStyleBlank = new GUIStyle();
 
         private static Color JModColor = new Color(0.0f, 0.85f, 0.85f);
 
@@ -59,7 +61,7 @@ namespace JModder
 
         private static List<string> configCategoryNameList = new List<string>();
 
-        public static ConfigEntry<KeyCode> configMenuToggle;
+        public static ConfigEntry<KeyboardShortcut> configMenuToggle;
 
         private static CursorLockMode lastLockMode;
         private static bool lastVisibleState;
@@ -125,11 +127,6 @@ namespace JModder
             }
         }
 
-        private static IEnumerable<ConfigSettingEntry> GetPluginConfig(BaseUnityPlugin plugin)
-        {
-            return plugin.Config.Select(kvp => new ConfigSettingEntry(kvp.Value, plugin));
-        }
-
 
         public static void ConfFileInit()
         {
@@ -153,9 +150,6 @@ namespace JModder
                         continue;
                     if (pluginInfo.GUID.StartsWith("jw11-modder"))
                     {
-                        var detected = new List<SettingEntryBase>();
-
-                        detected.AddRange(GetPluginConfig(plugin).Cast<SettingEntryBase>());
 
                         Log("Plugin search result: " + pluginGUID);
 
@@ -204,7 +198,7 @@ namespace JModder
 
             JModEnabled = Config.Bind("JMod", "Mod Enabled", true, "Enable config mod GUI");
 
-            configMenuToggle = Config.Bind("JMod", "MenuToggle", KeyCode.F7, "Main menu toggle key");
+            configMenuToggle = Config.Bind("JMod", "MenuToggle", new KeyboardShortcut(KeyCode.F7), "Main menu toggle key");
 
             JModStyleH.alignment = TextAnchor.MiddleCenter;
             JModStyleH.fontSize = 20;
@@ -248,7 +242,7 @@ namespace JModder
 
         public void Update()
         {
-            if (Input.GetKeyUp(configMenuToggle.Value) && JModEnabled.Value)
+            if (configMenuToggle.Value.IsDown() && JModEnabled.Value)
             {
                 LogWarning("GUI Toggled!");
                 SwitchMenu();
@@ -300,9 +294,19 @@ namespace JModder
             foreach (ConfigDefinition definition in configCategoryList[catIndex])
             {
                 string multLabel = jPlugin.Config[definition].Description.Description;
-                AcceptableValueRange<float> minMaxValues = (AcceptableValueRange<float>)jPlugin.Config[definition].Description.AcceptableValues;
-                var minValue = minMaxValues.MinValue;
-                var maxValue = minMaxValues.MaxValue;
+                float minValue;
+                float maxValue;
+                if (jPlugin.Config[definition].Description.AcceptableValues != null)
+                {
+                    AcceptableValueRange<float> minMaxValues = (AcceptableValueRange<float>)jPlugin.Config[definition].Description.AcceptableValues;
+                    minValue = minMaxValues.MinValue;
+                    maxValue = minMaxValues.MaxValue;
+                }
+                else
+                {
+                    minValue = 1f;
+                    maxValue = 20f;
+                }
                 multLabel += " (" + minValue.ToString() + " - " + maxValue.ToString() + ")";
                 GUI.Label(new Rect(xAxis, yAxis, 780, 20), multLabel, JModStyleP);
                 float value = (float)jPlugin.Config[definition].BoxedValue;
@@ -318,10 +322,19 @@ namespace JModder
             foreach (ConfigDefinition definition in configCategoryList[catIndex])
             {
                 string multLabel = jPlugin.Config[definition].Description.Description;
-                AcceptableValueRange<int> minMaxValues = (AcceptableValueRange<int>)jPlugin.Config[definition].Description.AcceptableValues;
-
-                var minValue = minMaxValues.MinValue;
-                var maxValue = minMaxValues.MaxValue;
+                int minValue;
+                int maxValue;
+                if (jPlugin.Config[definition].Description.AcceptableValues != null)
+                {
+                    AcceptableValueRange<int> minMaxValues = (AcceptableValueRange<int>)jPlugin.Config[definition].Description.AcceptableValues;
+                    minValue = minMaxValues.MinValue;
+                    maxValue = minMaxValues.MaxValue;
+                }
+                else
+                {
+                    minValue = 1;
+                    maxValue = 20;
+                }
                 multLabel += " (" + minValue.ToString() + " - " + maxValue.ToString() + ")";
                 GUI.Label(new Rect(xAxis, yAxis, 780, 20), multLabel, JModStyleP);
                 int value = (int)jPlugin.Config[definition].BoxedValue;
@@ -336,6 +349,10 @@ namespace JModder
         {
             if (showCheatsPopup)
             {
+
+                Rect jModWindowRect = new Rect(Screen.width / 2 - 425, Screen.height / 2 - 425, 850, 850);
+                Rect _screenRect = new Rect(0, 0, Screen.width, Screen.height);
+
                 var yAxis = 40;
                 var xAxis = 20;
 
@@ -350,6 +367,7 @@ namespace JModder
                 JModStyleST = GUI.skin.GetStyle("horizontalsliderthumb");
 
                 GUI.BeginGroup(new Rect(Screen.width / 2 - 425, Screen.height / 2 - 425, 850, 850));
+
                 GUI.Box(new Rect(0, 0, 850, 850), "MOD OPTIONS", JModStyleB);
 
                 GUI.Label(new Rect(xAxis, yAxis, 810, 20), "Toggle Mod Options", JModStyleH);
@@ -385,13 +403,32 @@ namespace JModder
                     }
                     yAxis += 25;
                 }*/
+
+
                 if (GUI.Button(new Rect(325, 810, 200, 35),"Save settings and close"))
                 {
                     SwitchMenu();
                 }
+
+                // Dirty little hack to disable mouse clickthrough
+
+                Vector2 mousePosition = UnityInput.Current.mousePosition;
+                mousePosition.y = Screen.height - mousePosition.y;
+
+                if (GUI.Button(_screenRect, string.Empty, JModStyleBlank) && !jModWindowRect.Contains(mousePosition))
+                {
+
+                }
+
+                if (jModWindowRect.Contains(mousePosition) && !configMenuToggle.Value.IsDown())
+                {
+                    Input.ResetInputAxes();
+                }
+
                 GUI.EndGroup();
             }
         }
 
     }
+
 }
