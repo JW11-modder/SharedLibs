@@ -9,11 +9,14 @@ using System.Reflection;
 using System.Text;
 using System.Threading.Tasks;
 using UnityEngine;
+using Unity.IO;
 using UnityEngine.EventSystems;
+
 #if !NOINPUTSYSTEM
 using UnityEngine.InputSystem;
 #endif
 using UnityEngine.UI;
+
 
 namespace JModder
 {
@@ -22,7 +25,7 @@ namespace JModder
         public const string GUID = "jw11-modder.JMod";
         public const string NAME = "JMod";
         public const string AUTHOR = "jw11-modder";
-        public const string VERSION = "1.0.0";
+        public const string VERSION = "1.0.1";
         public static MelonMod Instance { get; private set; }
         public static bool showCheatsPopup = false;
 
@@ -116,10 +119,10 @@ namespace JModder
             }
         }
 
-        public static void Init()
+        public static void Init(MelonMod instance)
         {
 
-            Instance = __instance;
+            Instance = instance;
 
             JModStyleH.alignment = TextAnchor.MiddleCenter;
             JModStyleH.fontSize = 20;
@@ -227,18 +230,30 @@ namespace JModder
 
                 GUI.Window(0, jModWindowRect, ModMenuWindow, "MOD OPTIONS", JModStyleB);
 
+#if !NOINPUTSYSTEM
+                Vector2 mousePosition = Mouse.current.position.value;
+#else
                 Vector2 mousePosition = Input.mousePosition;
+#endif
                 mousePosition.y = Screen.height - mousePosition.y;
 
                 if (GUI.Button(_screenRect, string.Empty, JModStyleBlank) && !jModWindowRect.Contains(mousePosition))
                 {
 
                 }
-
-                if (jModWindowRect.Contains(mousePosition) && !Input.GetKeyDown(configMenuToggle.Value)))
+#if !NOINPUTSYSTEM
+                if (jModWindowRect.Contains(mousePosition) && !((Event.current.keyCode == (configMenuToggle.Value)) && (Event.current.type == EventType.KeyDown)))
+#else
+                if (jModWindowRect.Contains(mousePosition) && !Input.GetKeyDown(configMenuToggle.Value) && !Input.GetKeyUp(configMenuToggle.Value))
+#endif
                 {
+#if !NOINPUTSYSTEM
+                    //Event.current.Use();
+#else
                     Input.ResetInputAxes();
+#endif
                 }
+
             }
         }
 
@@ -261,28 +276,32 @@ namespace JModder
                 var tmpcat = CustomCategoryList[i];
                 GUI.Label(new Rect(xAxis, yAxis, 810, 20), tmpcat.DisplayName, JModStyleH);
                 yAxis += 35;
-                switch (tmpcat.Entries[0].GetType().ToString())
+                switch (tmpcat.Entries[0].BoxedValue.GetType().ToString())
                 {
-                    case "bool":
+                    case "System.Boolean":
                         {
                             ShowBoolMenu(ref xAxis, ref yAxis, ref tmpcat);
                             CustomCategoryList[i] = tmpcat;
                             continue;
                         }
-                    case "float":
+                    case "System.Single":
                         {
                             ShowFloatMenu(ref xAxis, ref yAxis, ref tmpcat);
                             CustomCategoryList[i] = tmpcat;
                             continue;
                         }
-                    case "int":
+                    case "System.Int32":
                         {
                             ShowIntMenu(ref xAxis, ref yAxis, ref tmpcat);
                             CustomCategoryList[i] = tmpcat;
                             continue;
                         }
                     default:
-                        continue;
+                        {
+                            Log(tmpcat.Entries[0].BoxedValue.GetType().ToString());
+                            continue;
+                        }
+
                 }
             }
 
